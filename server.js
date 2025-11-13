@@ -5,15 +5,21 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const Schedule = require('./models/Schedule');
-const User = require('./models/User');
+const User = require('./require');
 const authMiddleware = require('./middleware/auth'); 
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const MONGODB_URI = 'mongodb://localhost:27017/mi_portfolio_db'; 
-const JWT_SECRET = 'TU_SECRETO_SEGURO';
+const MONGODB_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mi_portfolio_db'; 
+const JWT_SECRET = process.env.JWT_SECRET || 'TU_SECRETO_SEGURO_LOCAL'; 
+const VERCEL_FRONTEND_URL = 'https://live-ivory-eta.vercel.app'; 
 
-app.use(cors());
+const corsOptions = {
+    origin: VERCEL_FRONTEND_URL, 
+    credentials: true, 
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 mongoose.connect(MONGODB_URI)
@@ -22,17 +28,9 @@ mongoose.connect(MONGODB_URI)
 
 app.get('/api/users', authMiddleware.verifyToken, authMiddleware.verifyAdminOrJefe, async (req, res) => {
     try {
-        const usersDB = await User.find({
-        role: { $ne: 'jefe' }, 
-        _id: { $ne: req.user.userId }
-        }).select('-password').lean();
 
-        const usersFrontend = usersDB.map(user => ({
-        userId: user._id,
-        username: user.username,
-        role: user.role
-        }));
-        
+        const usersDB = await User.find({role: { $ne: 'jefe' }, _id: { $ne: req.user.userId }}).select('-password').lean();
+        const usersFrontend = usersDB.map(user => ({userId: user._id, username: user.username, role: user.role}));
         res.json(usersFrontend);
     } catch (error) {
         console.error("Error al obtener la lista de usuarios:", error);
@@ -43,6 +41,7 @@ app.get('/api/users', authMiddleware.verifyToken, authMiddleware.verifyAdminOrJe
 app.post('/api/register', async (req, res) => {
 
     try {
+        
         const { username, password } = req.body;
         const existingUser = await User.findOne({ username });
 
@@ -53,7 +52,6 @@ app.post('/api/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({username, password: hashedPassword, role: 'espectador'});
         await newUser.save();
-
         const token = jwt.sign({ userId: newUser._id, role: newUser.role, username: newUser.username }, JWT_SECRET, { expiresIn: '1d' });
         res.status(201).json({ token, userId: newUser._id, username: newUser.username, role: newUser.role});
     } catch (error) {
@@ -153,5 +151,5 @@ app.put('/api/users/:userId/role', authMiddleware.verifyToken, authMiddleware.ve
 });
 
 app.listen(PORT, () => {
-    console.log(`Backend del Streaming ejecutándose en http://localhost:${PORT}`);
+    console.log(`Backend del Streaming ejecutándose en ${MONGODB_URI.includes('localhost') ? `http://localhost:${PORT}` : 'Render'}`);
 });
