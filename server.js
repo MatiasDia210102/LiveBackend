@@ -4,9 +4,9 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-const Schedule = require('./models/Schedule');
-const User = require('./require');
-const authMiddleware = require('./middleware/auth'); 
+const Schedule = require('./models/Schedule.js');
+const User = require('./models/User.js');
+const authMiddleware = require('./middleware/auth.js'); 
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -41,7 +41,7 @@ app.get('/api/users', authMiddleware.verifyToken, authMiddleware.verifyAdminOrJe
 app.post('/api/register', async (req, res) => {
 
     try {
-        
+
         const { username, password } = req.body;
         const existingUser = await User.findOne({ username });
 
